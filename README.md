@@ -21,7 +21,7 @@ resource_types:
 - name: webhook
   type: docker-image
   source:
-    repository: hub.docker.io/ardavanhashemzadeh/concourse-webhook-resource
+    repository: ghcr.io/ardavanhashemzadeh/concourse-webhook-resource
 
 resources:
 - name: my-resource
