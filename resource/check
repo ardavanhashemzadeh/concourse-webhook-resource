@@ -1,0 +1,83 @@
+#!/bin/bash
+#/ardy/hash
+
+default_git_name=pipeline
+default_git_email=pi@pel.ine
+default_log_folder=logs
+
+json_input=$(cat)  # Read JSON input from stdin
+# {
+#     "source": {
+#         "limit": "900",
+#         "uri": "git@github.com:ardavanhashemzadeh/concourse-webhook-resource.git",
+#         "branch": "main",
+#         "user": "pipeline",
+#         "email": "mario@pipesrus.net",
+#         "private_key": "",
+#         "filename": "test-pipeline-job"
+#     },
+#     "version": {
+#         "ref": "61cbef"
+#     }
+# }
+
+export current_time=$(date +%s)
+
+# Use jq to parse the JSON input
+export version=$(echo $json_input | jq -r .version.ref )
+export limit=$(echo $json_input | jq -r .source.limit )
+export git_uri=$(echo $json_input | jq -r .source.uri )
+export git_name=$(echo $json_input | jq -r .source.name )
+export git_email=$(echo $json_input | jq -r .source.email )
+export git_branch=$(echo $json_input | jq -r .source.branch )
+export git_ssh_key=$(echo $json_input | jq -r .source.private_key )
+export git_filename=${default_log_folder}/$(echo $json_input | jq -r .source.filename )
+
+# Setup git ssh key, user, and email as necessary
+mkdir -p ~/.ssh
+[ -n "$git_ssh_key" ] && [ ! -f ~/.ssh/id_rsa ] && echo "$git_ssh_key" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+if [ -z "$(git config --global user.name)" ]; then
+    if [ -n "$git_name" ]; then
+        git config --global user.name "$git_name" 1>&2
+    else
+        git config --global user.name "$default_git_name" 1>&2
+    fi
+fi
+if [ -z "$(git config --global user.email)" ]; then
+    if [ -n "$git_email" ]; then
+        git config --global user.email "$git_email" 1>&2
+    else
+        git config --global user.email "$default_git_email" 1>&2
+    fi
+fi
+
+# Clone and pull latest, create log folder if it doesn't exist
+[ -d /tmp/repo ] || git clone ${git_uri} /tmp/repo 1>&2
+cd /tmp/repo
+git pull  1>&2
+mkdir -p ${default_log_folder} 1>&2
+
+# Get last runtime from the log file and set to 0 if empty
+last_run_time=$(tail -n1 $git_filename)
+[[ -z "$last_run_time" ]] && last_run_time=0
+
+difference=$((current_time - last_run_time))
+
+if [[ $difference -ge $limit ]]; then
+    export version=$current_time
+    echo $version >> $git_filename
+    git add . 1>&2 ; git commit -m "Resource version cut on $(date -d @${current_time}) (likely from via check, aka run, of the pipeline)" 1>&2; git push 1>&2
+fi
+
+case $(basename "$0") in
+    check)
+        export vershist='['
+        for i in $(cat ${git_filename}); do
+            export vershist+=$(printf '{"ref":"%s"},' "$i")
+        done
+        echo "${vershist%?}]"
+    ;;
+    in|out)
+    printf '{ "version": { "ref": "%s" }, "metadata": [ { "timestamp": "%s" } ] }' "$version" "$(date -d @${version})"
+    ;;
+esac
