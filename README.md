@@ -21,15 +21,15 @@ resource_types:
 - name: webhook
   type: docker-image
   source:
-    repository: ghcr.io/ardavanhashemzadeh/concourse-webhook-resource
+    repository: ardavanhashemzadeh/concourse-webhook-resource
 
 resources:
-- name: my-resource
+- name: RESOURCE
   check_every: never
   type: webhook
-  webhook_token: helloworld
+  webhook_token: MYTOKEN
   source:
-    uri: git@github.com:ardavanhashemzadeh/concourse-webhook-resource.git
+    uri: git@github.com:MYGITHUBORG/MYTRACKINGREPONAME.git
     branch: main
     name: pipeline
     email: pipe@line.net
@@ -51,5 +51,5 @@ jobs:
 
 Fire off the pipeline by checking resource:
 ```
-curl -X POST 'https://CONCOURSEURL/api/v1/teams/TEAM/pipelines/PIPELINE/resources/RESOURCE/check/webhook?webhook_token=TOKEN'
+curl -X POST 'https://CONCOURSEURL/api/v1/teams/TEAM/pipelines/PIPELINE/resources/RESOURCE/check/webhook?webhook_token=MYTOKEN'
 ```
